@@ -1,161 +1,183 @@
+import Link from "next/link";
+import Image from "next/image";
 import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
-import Image from 'next/image';
-import Link from 'next/link';
 
-async function getPost(slug: string) {
-  const query = `*[_type == "post" && slug.current == $slug][0]{
+async function getPosts() {
+  const query = `*[_type == "post"] | order(publishedAt desc)[0...10] {
     title,
     slug,
     publishedAt,
+    excerpt,
     body,
     mainImage,
-    "categories": categories[]->title
+    "categories": categories[]->title,
+    author->{name, image}
   }`;
-  return await client.fetch(query, { slug });
+  return await client.fetch(query);
 }
 
-// Okuma süresi hesaplama fonksiyonu
-function calculateReadingTime(body: any[]) {
-  if (!body) return "1 min read";
-  const text = body
-    .map((block) => block._type === 'block' && block.children ? block.children.map((c: any) => c.text).join('') : '')
+function extractTextFromBlocks(body: any[]): string {
+  if (!body || !Array.isArray(body)) return "";
+  return body
+    .map(block => {
+      if (block._type !== 'block' || !block.children) return '';
+      return block.children.map((child: any) => child.text).join('');
+    })
     .join(' ');
+}
+
+function calculateReadingTime(body: any[]) {
+  const text = extractTextFromBlocks(body);
+  if (!text) return "1 min read";
   const words = text.trim().split(/\s+/).length;
   const time = Math.ceil(words / 200);
   return `${time} min read`;
 }
 
-export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = await params;
-  const post = await getPost(resolvedParams.slug);
-
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-white py-20 text-center">
-        <h1 className="text-2xl font-bold text-gray-800">Yazı bulunamadı.</h1>
-        <Link href="/" className="text-indigo-600 hover:underline mt-4 inline-block">Ana sayfaya dön</Link>
-      </div>
-    );
-  }
-
-  const readingTime = calculateReadingTime(post.body);
-  const postUrl = `http://localhost:3000/posts/${post.slug?.current}`;
+export default async function Home() {
+  const posts = await getPosts();
 
   return (
-    <div className="min-h-screen bg-white py-12 flex flex-col justify-between">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        
-        {/* Geri Dönüş Linki */}
-        <div className="mb-8">
-          <Link 
-            href="/" 
-            className="inline-flex items-center text-lg font-bold text-indigo-600 hover:text-indigo-800 transition-colors group"
-          >
-            <span className="mr-2 transform group-hover:-translate-x-1 transition-transform">←</span> 
-            Ana Sayfaya Dön
-          </Link>
+    <div className="min-h-screen bg-white flex flex-col justify-between overflow-x-hidden">
+      <div>
+        {/* Panoramik Banner - Mobilde oranları dengelendi */}
+        <div className="relative w-full h-[30vh] sm:h-[45vh] min-h-[220px] max-h-[480px]">
+          <Image
+            src="/sword.jpg"
+            alt="The Warrior's Ledger - Panoramic Banner"
+            fill
+            className="object-cover object-center"
+            priority
+            quality={100}
+          />
+          <div className="absolute inset-0 blue/10" />
         </div>
 
-        {/* Kategori, Tarih ve Okuma Süresi */}
-        <div className="flex items-center space-x-3 mb-4 text-xs">
-          {post.categories?.[0] && (
-            <span className="px-3 py-1 font-semibold text-indigo-700 bg-indigo-50 rounded-full">
-              {post.categories[0]}
-            </span>
-          )}
-          {post.publishedAt && (
-            <span className="text-gray-400">
-              {new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </span>
-          )}
-          <span className="text-gray-300">•</span>
-          <span className="text-gray-700 font-semibold">{readingTime}</span>
-        </div>
-
-        {/* Başlık */}
-        <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mb-6">
-          {post.title}
-        </h1>
-
-        {/* Ana Görsel */}
-        {post.mainImage && (
-          <div className="relative w-full h-[350px] sm:h-[450px] rounded-2xl overflow-hidden mb-8 shadow-md">
-            <Image
-              src={urlFor(post.mainImage).url()}
-              alt={post.title || "Post Image"}
-              fill
-              className="object-cover"
-              priority
-            />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+          {/* Hero Metin Alanı */}
+          <div className="text-center space-y-3 sm:space-y-4 mb-12 sm:mb-16 bg-white p-6 sm:p-10 rounded-3xl shadow-xl sm:shadow-2xl border border-gray-100 -mt-12 sm:-mt-20 relative z-10">
+            <h1 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight">
+              The Warrior's Ledger
+            </h1>
+            <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Chronicles of a warrior turning life's battles into a daily journal. Documenting personal growth, the art of living, and the raw drafts of a book in progress.
+            </p>
           </div>
-        )}
 
-        {/* İçerik Alanı */}
-        <div className="prose prose-indigo max-w-none text-gray-700 space-y-4 mb-12">
-          {post.body ? (
-            post.body.map((block: any, index: number) => {
-              if (block._type === 'block' && block.children) {
+          {/* Recent Posts Section Header */}
+          <div className="border-b border-gray-200 pb-4 sm:pb-5 mb-6 sm:mb-8 flex items-center justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+              Latest Dispatches
+            </h2>
+            <Link href="/all-posts" className="text-xs sm:text-sm font-medium text-indigo-600 hover:underline">
+              All Posts
+            </Link>
+          </div>
+
+          {/* Blog Kartları Listesi veya Boş Durum */}
+          <div className="grid gap-4 sm:gap-6">
+            {posts.length === 0 ? (
+              <div className="text-center py-16 px-6 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                <div className="text-4xl mb-3">🛡️</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Henüz Savaş Raporu Yok</h3>
+                <p className="text-gray-500 text-sm max-w-md mx-auto mb-6">
+                  Savaşçı henüz klavyesinin başına geçmedi veya yeni yazılar yolda. Sanity panelinden ilk yazını ekleyebilirsin.
+                </p>
+                <span className="inline-block px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 rounded-full shadow-md">
+                  Ready for Battle
+                </span>
+              </div>
+            ) : (
+              posts.map((post: any) => {
+                const extractedBodyText = extractTextFromBlocks(post.body);
+                const fullText = post.excerpt || extractedBodyText || "Yazının içeriği yükleniyor...";
+                const limitedText = fullText.length > 130 ? fullText.slice(0, 130) + "..." : fullText;
+                const readingTime = calculateReadingTime(post.body);
+
                 return (
-                  <p key={index} className="leading-relaxed">
-                    {block.children.map((child: any) => child.text).join('')}
-                  </p>
+                  <div key={post.slug?.current} className="p-4 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 sm:gap-6 items-center">
+                    
+                    {/* Kapak Görseli */}
+                    {post.mainImage && (
+                      <div className="relative w-full sm:w-48 h-48 sm:h-36 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
+                        <Image
+                          src={urlFor(post.mainImage).url()}
+                          alt={post.title || "Post Image"}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {/* İçerik Kısmı */}
+                    <div className="flex-1 w-full flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2 mb-2 flex-wrap gap-y-1">
+                          <span className="px-2.5 py-0.5 text-xs font-semibold text-indigo-700 bg-indigo-50 rounded-full">
+                            {post.categories?.[0] || 'Journey'}
+                          </span>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-xs font-semibold text-gray-600">{readingTime}</span>
+                          
+                          {/* Yazar Bilgisi */}
+                          {post.author && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <div className="flex items-center space-x-1.5">
+                                {post.author.image && (
+                                    <div className="relative w-5 h-5 rounded-full overflow-hidden">
+                                      <Image
+                                        src={urlFor(post.author.image).url()}
+                                        alt={post.author.name}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                )}
+                                <span className="text-xs font-medium text-gray-700">{post.author.name}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+                          {post.title}
+                        </h3>
+                        
+                        <p className="text-gray-600 text-xs sm:text-sm mb-4 leading-relaxed">
+                          {limitedText}
+                        </p>
+                      </div>
+
+                      {/* Alt Kısım: Tarih ve Buton */}
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-xs">
+                        {post.publishedAt ? (
+                          <span className="text-gray-400 font-medium">
+                            {new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        ) : <span />}
+
+                        <Link 
+                          href={`/posts/${post.slug?.current}`} 
+                          className="inline-flex items-center px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-full transition-colors"
+                        >
+                          Read Dispatch →
+                        </Link>
+                      </div>
+                    </div>
+
+                  </div>
                 );
-              }
-              return null;
-            })
-          ) : (
-            <p>İçerik yükleniyor...</p>
-          )}
-        </div>
-
-        {/* Sosyal Medya / Paylaşım Alanı (2x2 Grid Düzeni & İngilizce Metin) */}
-        <div className="border-t border-gray-100 pt-8 mb-16 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-sm font-semibold text-gray-800 text-center md:text-left">
-            Did you like this article? You can share or follow:
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3 w-full sm:w-auto">
-            <a 
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(postUrl)}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 text-xs font-bold text-center text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-            >
-              Twitter / X
-            </a>
-            <a 
-              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`${post.title} -${postUrl}`)}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 text-xs font-bold text-center text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors"
-            >
-              WhatsApp
-            </a>
-            <a 
-              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 text-xs font-bold text-center text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors"
-            >
-              LinkedIn
-            </a>
-            <a 
-              href="https://instagram.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 text-xs font-bold text-center text-white bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 hover:opacity-90 rounded-xl transition-opacity"
-            >
-              Instagram
-            </a>
+              })
+            )}
           </div>
         </div>
-
       </div>
 
-      {/* Footer / Alt Bilgi */}
-      <footer className="w-full border-t border-gray-100 py-8 mt-auto text-center text-sm text-gray-500">
-        <p>© {new Date().getFullYear()} Warrior's Blog. Tüm hakları saklıdır.</p>
+      {/* Copyright Alanı */}
+      <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
+        <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
       </footer>
     </div>
   );
