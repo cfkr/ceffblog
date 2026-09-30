@@ -11,7 +11,8 @@ async function getPosts() {
     excerpt,
     body,
     mainImage,
-    "categories": categories[]->title
+    "categories": categories[]->title,
+    author->{name, image}
   }`;
   return await client.fetch(query);
 }
@@ -118,6 +119,26 @@ export default async function Home() {
                           </span>
                           <span className="text-gray-300">•</span>
                           <span className="text-xs font-semibold text-gray-600">{readingTime}</span>
+                          
+                          {/* Yazar Bilgisi */}
+                          {post.author && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <div className="flex items-center space-x-1.5">
+                                {post.author.image && (
+                                    <div className="relative w-5 h-5 rounded-full overflow-hidden">
+                                      <Image
+                                        src={urlFor(post.author.image).url()}
+                                        alt={post.author.name}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                )}
+                                <span className="text-xs font-medium text-gray-700">{post.author.name}</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                         
                         <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
@@ -156,8 +177,8 @@ export default async function Home() {
 
       {/* Copyright Alanı */}
       <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
-  <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
-</footer>
+        <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
