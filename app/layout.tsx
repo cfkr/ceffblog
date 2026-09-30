@@ -14,8 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Benim Kişisel Blogum",
-  description: "Next.js ve Sanity ile geliştirildi",
+  title: "The Warrior's Ledger",
+  description: "Chronicles of a warrior turning life's battles into a daily journal.",
+  openGraph: {
+    title: "The Warrior's Ledger",
+    description: "Chronicles of a warrior turning life's battles into a daily journal.",
+    url: 'https://ceffblog.com',
+    siteName: 'Ceffblog',
+    locale: 'tr_TR',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
