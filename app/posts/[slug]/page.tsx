@@ -10,7 +10,8 @@ async function getPost(slug: string) {
     publishedAt,
     body,
     mainImage,
-    "categories": categories[]->title
+    "categories": categories[]->title,
+    author->{name, image, bio}
   }`;
   return await client.fetch(query, { slug });
 }
@@ -57,8 +58,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           </Link>
         </div>
 
-        {/* Kategori, Tarih ve Okuma Süresi */}
-        <div className="flex items-center space-x-3 mb-4 text-xs">
+        {/* Kategori, Tarih, Okuma Süresi ve Yazar Bilgisi */}
+        <div className="flex items-center space-x-3 mb-4 text-xs flex-wrap gap-y-2">
           {post.categories?.[0] && (
             <span className="px-3 py-1 font-semibold text-indigo-700 bg-indigo-50 rounded-full">
               {post.categories[0]}
@@ -71,6 +72,25 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           )}
           <span className="text-gray-300">•</span>
           <span className="text-gray-700 font-semibold">{readingTime}</span>
+
+          {post.author && (
+            <>
+              <span className="text-gray-300">•</span>
+              <div className="flex items-center space-x-2">
+                {post.author.image && (
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                    <Image
+                      src={urlFor(post.author.image).url()}
+                      alt={post.author.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <span className="font-semibold text-gray-800">{post.author.name}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Başlık */}
@@ -109,7 +129,46 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           )}
         </div>
 
-        {/* Sosyal Medya / Paylaşım Alanı (2x2 Grid Düzeni & İngilizce Metin) */}
+        {/* --- YAZAR KARTI (AUTHOR BIO) --- */}
+        {post.author && (
+          <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 sm:p-8 mb-10 flex flex-col sm:flex-row items-center sm:items-center gap-6 shadow-sm">
+            {post.author.image && (
+              <div className="relative w-32 h-44 sm:w-36 sm:h-48 rounded-xl overflow-hidden flex-shrink-0 border-2 border-white shadow-md">
+                <Image
+                  src={urlFor(post.author.image).url()}
+                  alt={post.author.name}
+                  fill
+                  className="object-cover object-center"
+                />
+              </div>
+            )}
+            <div className="text-center sm:text-left flex-1">
+              <h3 className="text-xl font-bold text-gray-900 mb-1">Written by {post.author.name}</h3>
+              
+              {/* Yazar Kartı İçi Mail Linki */}
+              <div className="mb-3">
+                <a 
+                  href="mailto:info@ceffblog.com" 
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  <span>✉️</span> info@ceffblog.com
+                </a>
+              </div>
+
+              <p className="text-gray-700 text-base leading-relaxed">
+                {post.author.bio ? (
+                  Array.isArray(post.author.bio) 
+                    ? post.author.bio.map((block: any) => block.children?.map((c: any) => c.text).join('')).join(' ')
+                    : post.author.bio
+                ) : (
+                  "Chronicles of a warrior turning life's battles into a daily journal. Documenting personal growth and the art of living."
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Sosyal Medya / Paylaşım Alanı */}
         <div className="border-t border-gray-100 pt-8 mb-16 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-sm font-semibold text-gray-800 text-center md:text-left">
             Did you like this article? You can share or follow:
@@ -155,7 +214,13 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
       {/* Footer / Alt Bilgi */}
       <footer className="w-full border-t border-gray-100 py-8 mt-auto text-center text-sm text-gray-500">
-        <p>© {new Date().getFullYear()} Warrior's Blog. Tüm hakları saklıdır.</p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6">
+          <p>© {new Date().getFullYear()} Warrior's Blog. Tüm hakları saklıdır.</p>
+          <span className="hidden sm:inline text-gray-300">•</span>
+          <a href="mailto:info@ceffblog.com" className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+            ✉️ info@ceffblog.com
+          </a>
+        </div>
       </footer>
     </div>
   );
