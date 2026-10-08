@@ -3,7 +3,10 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  const query = `*[_type == "post" && references(*[_type == "category" && slug.current == $slug]._id)] | order(publishedAt desc) {
+  // Hem slug ile hem de başlık metniyle (tireleri boşluğa çevirerek) eşleşme arıyoruz
+  const formattedName = categorySlug.replace(/-/g, ' ');
+
+  const query = `*[_type == "post" && count(categories[]->[slug.current == $slug || title == $formattedName || lower(title) == lower($formattedName)]) > 0] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -12,7 +15,11 @@ async function getPostsByCategory(categorySlug: string) {
     mainImage,
     "categories": categories[]->title
   }`;
-  return await client.fetch(query, { slug: categorySlug });
+
+  return await client.fetch(query, { 
+    slug: categorySlug,
+    formattedName: formattedName
+  });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -30,7 +37,16 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  const categoryTitle = slug.charAt(0).toUpperCase() + slug.slice(1);
+  // Slug değerini şık bir başlığa dönüştürüyoruz (Örn: books-and-thoughts -> Books & Thoughts)
+  let categoryTitle = slug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  // Özel durumlar için düzeltmeler
+  if (slug.toLowerCase() === 'books-and-thoughts') {
+    categoryTitle = 'Books & Thoughts';
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between">
@@ -111,7 +127,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
       </div>
 
-      {/* Footer (İngilizce olarak güncellendi) */}
+      {/* Footer */}
       <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
         <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
       </footer>
