@@ -3,13 +3,7 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  let slugOptions = [categorySlug];
-  
-  if (categorySlug.toLowerCase().includes('book')) {
-    slugOptions = ['books', 'book', 'book-thoughts', 'book-and-thoughts', 'books-and-thoughts'];
-  }
-
-  const query = `*[_type == "post" && count(categories[]->slug.current[@ in $slugOptions]) > 0] | order(publishedAt desc) {
+  const query = `*[_type == "post" && references(*[_type == "category" && slug.current == $slug]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -18,8 +12,7 @@ async function getPostsByCategory(categorySlug: string) {
     mainImage,
     "categories": categories[]->title
   }`;
-
-  return await client.fetch(query, { slugOptions });
+  return await client.fetch(query, { slug: categorySlug });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -37,14 +30,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Başlığı net bir şekilde ayarlıyoruz: Eğer slug içinde "book" geçiyorsa "Books & Thoughts" yapsın
-  let categoryTitle = 'Books & Thoughts';
-  if (slug && !slug.toLowerCase().includes('book')) {
-    categoryTitle = slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
+  const categoryTitle = slug.charAt(0).toUpperCase() + slug.slice(1);
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between">
@@ -125,7 +111,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
       </div>
 
-      {/* Footer */}
+      {/* Footer (İngilizce olarak güncellendi) */}
       <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
         <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
       </footer>
