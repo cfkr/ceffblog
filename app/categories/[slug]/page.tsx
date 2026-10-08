@@ -3,10 +3,8 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Hem slug ile hem de başlık metniyle (tireleri boşluğa çevirerek) eşleşme arıyoruz
-  const formattedName = categorySlug.replace(/-/g, ' ');
-
-  const query = `*[_type == "post" && count(categories[]->[slug.current == $slug || title == $formattedName || lower(title) == lower($formattedName)]) > 0] | order(publishedAt desc) {
+  // Sadece ilgili slug veya başlığa sahip kategoriye referans veren postları çeker
+  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $slug || lower(title) == lower($formattedName))]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -15,6 +13,8 @@ async function getPostsByCategory(categorySlug: string) {
     mainImage,
     "categories": categories[]->title
   }`;
+
+  const formattedName = categorySlug.replace(/-/g, ' ');
 
   return await client.fetch(query, { 
     slug: categorySlug,
@@ -37,13 +37,12 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Slug değerini şık bir başlığa dönüştürüyoruz (Örn: books-and-thoughts -> Books & Thoughts)
+  // Slug değerini şık bir başlığa dönüştürüyoruz
   let categoryTitle = slug
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  // Özel durumlar için düzeltmeler
   if (slug.toLowerCase() === 'books-and-thoughts') {
     categoryTitle = 'Books & Thoughts';
   }
