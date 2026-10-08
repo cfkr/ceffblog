@@ -3,8 +3,8 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Tüm postları çekiyoruz, filtrelemeyi hata vermemesi için güvenli şekilde JS tarafında yapıyoruz
-  const query = `*[_type == "post"] | order(publishedAt desc) {
+  // GROQ seviyesinde doğrudan ilişkili kategorinin slug'ına göre filtreliyoruz
+  const query = `*[_type == "post" && references(*[_type == "category" && slug.current == $categorySlug]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -13,26 +13,8 @@ async function getPostsByCategory(categorySlug: string) {
     mainImage,
     "categories": categories[]->title
   }`;
-  
-  const posts = await client.fetch(query);
 
-  // URL'den gelen slug'ı kategori adına çevirip eşleştiriyoruz (Örn: "book-and-thoughts" -> "book")
-  const searchKeyword = categorySlug.replace(/-/g, ' ').toLowerCase();
-
-  return posts.filter((post: any) => {
-    if (!post.categories || !Array.isArray(post.categories)) return false;
-    
-    return post.categories.some((cat: string) => {
-      if (!cat) return false;
-      const catLower = cat.toLowerCase();
-      
-      // Eğer aranan kelime "book" içeriyorsa kategori adında da "book" arar
-      if (searchKeyword.includes('book') && catLower.includes('book')) return true;
-      
-      // Diğer kategoriler için birebir veya kapsayan eşleşme bakar
-      return catLower.includes(searchKeyword) || searchKeyword.includes(catLower);
-    });
-  });
+  return await client.fetch(query, { categorySlug });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -50,7 +32,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Başlığı tam istediğin gibi net ayarlıyoruz
+  // Başlığı dinamik olarak ayarlıyoruz
   let categoryTitle = 'Books & Thoughts';
   if (slug && !slug.toLowerCase().includes('book')) {
     categoryTitle = slug
@@ -91,7 +73,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
             </div>
           ) : (
             posts.map((post: any) => {
-              const fullText = post.excerpt || extractTestFromBlocks(post.body) || ""; // Güvenli metin çekme
+              const fullText = post.excerpt || extractTextFromBlocks(post.body) || "";
               const limitedText = fullText.length > 130 ? fullText.slice(0, 130) + "..." : fullText;
 
               return (
@@ -113,7 +95,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
                         {post.title}
                       </h3>
                       <p className="text-gray-600 text-xs sm:text-sm mb-4 leading-relaxed">
-                        {limitedText}
+                        {limitedTest || limitedText}
                       </p>
                     </div>
 
