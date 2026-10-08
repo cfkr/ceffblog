@@ -3,7 +3,8 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $slug || slug.current == "book-thoughts" || slug.current == "books")]._id)] | order(publishedAt desc) {
+  // Sadece URL'den gelen kategori slug'ıyla birebir eşleşen postları çeker
+  const query = `*[_type == "post" && $slug in categories[]->slug.current] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -32,13 +33,12 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const posts = await getPostsByCategory(slug);
 
   // Kategori başlığını şık bir şekilde belirliyoruz
-  let categoryTitle = 'Book & Thoughts';
-  if (slug && !slug.toLowerCase().includes('book')) {
-    categoryTitle = slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  } else if (slug && slug.toLowerCase().includes('book')) {
+  let categoryTitle = slug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  if (slug.toLowerCase().includes('book')) {
     categoryTitle = 'Book & Thoughts';
   }
 
