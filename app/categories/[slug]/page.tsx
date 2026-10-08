@@ -3,13 +3,8 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // "books" veya "book" gibi slug gelirse, Sanity'deki gerçek "book-and-thoughts" / "book-thoughts" ile eşleştiriyoruz
-  let targetSlug = categorySlug;
-  if (categorySlug.toLowerCase() === 'books' || categorySlug.toLowerCase() === 'book') {
-    targetSlug = 'book-and-thoughts'; // Sanity'deki gerçek slug ile değiştirilebilir
-  }
-
-  const query = `*[_type == "post" && ($slug in categories[]->slug.current || $targetSlug in categories[]->slug.current || references(*[_type == "category" && (slug.current == $slug || slug.current == $targetSlug || lower(title) match "*book*")]._id))] | order(publishedAt desc) {
+  // Kesinlikle sadece URL'den gelen slug ile eşleşen kategorilere ait postları çeker
+  const query = `*[_type == "post" && $slug in categories[]->slug.current] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -19,10 +14,7 @@ async function getPostsByCategory(categorySlug: string) {
     "categories": categories[]->title
   }`;
 
-  return await client.fetch(query, { 
-    slug: categorySlug,
-    targetSlug: targetSlug
-  });
+  return await client.fetch(query, { slug: categorySlug });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -40,13 +32,14 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Başlığı her zaman şık gösterelim
-  let categoryTitle = 'Book & Thoughts';
-  if (slug && !slug.toLowerCase().includes('book')) {
-    categoryTitle = slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  // Kategori başlığını şık bir şekilde belirliyoruz
+  let categoryTitle = slug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  if (slug.toLowerCase().includes('book')) {
+    categoryTitle = 'Book & Thoughts';
   }
 
   return (
