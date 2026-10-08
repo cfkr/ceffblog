@@ -3,11 +3,13 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  const term = categorySlug.toLowerCase();
-  const titleTerm = categorySlug.replace(/-/g, ' ').toLowerCase();
-
-  // Sadece ilgili kategoriyle eşleşen yazıları çeken güvenli ve kesin sorgu
-  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $slug || lower(slug.current) == $term || lower(title) == $titleTerm)]._id)] | order(publishedAt desc) {
+  // Slug ve kategori başlığı eşleşmesini esnek ve garantili hale getiriyoruz
+  const query = `*[_type == "post" && count(categories[]->[
+    slug.current == $slug || 
+    lower(slug.current) == lower($slug) || 
+    title match $wildcardTitle ||
+    lower(title) match lower($wildcardTitle)
+  ]) > 0] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -17,10 +19,11 @@ async function getPostsByCategory(categorySlug: string) {
     "categories": categories[]->title
   }`;
 
+  const wildcardTitle = `*${categorySlug.replace(/-/g, ' ')}*`;
+
   return await client.fetch(query, { 
     slug: categorySlug,
-    term: term,
-    titleTerm: titleTerm
+    wildcardTitle: wildcardTitle
   });
 }
 
@@ -39,14 +42,15 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Slug değerini şık bir başlığa dönüştürüyoruz
-  let categoryTitle = slug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  if (slug.toLowerCase() === 'books-and-thoughts') {
-    categoryTitle = 'Books & Thoughts';
+  // Kategori başlığını URL slug'ına göre düzenliyoruz
+  let categoryTitle = 'Book & Thoughts';
+  if (slug && !slug.toLowerCase().includes('book')) {
+    categoryTitle = slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  } else if (slug && slug.toLowerCase().includes('book')) {
+    categoryTitle = 'Book & Thoughts';
   }
 
   return (
