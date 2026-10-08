@@ -3,8 +3,13 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Kesinlikle sadece URL'den gelen slug ile eşleşen kategorilere ait postları çeker
-  const query = `*[_type == "post" && $slug in categories[]->slug.current] | order(publishedAt desc) {
+  let slugOptions = [categorySlug];
+  
+  if (categorySlug.toLowerCase().includes('book')) {
+    slugOptions = ['books', 'book', 'book-thoughts', 'book-and-thoughts', 'books-and-thoughts'];
+  }
+
+  const query = `*[_type == "post" && count(categories[]->slug.current[@ in $slugOptions]) > 0] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -14,7 +19,7 @@ async function getPostsByCategory(categorySlug: string) {
     "categories": categories[]->title
   }`;
 
-  return await client.fetch(query, { slug: categorySlug });
+  return await client.fetch(query, { slugOptions });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -32,14 +37,13 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Kategori başlığını şık bir şekilde belirliyoruz
-  let categoryTitle = slug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  if (slug.toLowerCase().includes('book')) {
-    categoryTitle = 'Book & Thoughts';
+  // Başlığı net bir şekilde ayarlıyoruz: Eğer slug içinde "book" geçiyorsa "Books & Thoughts" yapsın
+  let categoryTitle = 'Books & Thoughts';
+  if (slug && !slug.toLowerCase().includes('book')) {
+    categoryTitle = slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   return (
