@@ -3,8 +3,11 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Sadece ilgili slug veya başlığa sahip kategoriye referans veren postları çeker
-  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $slug || lower(title) == lower($formattedName))]._id)] | order(publishedAt desc) {
+  const term = categorySlug.toLowerCase();
+  const titleTerm = categorySlug.replace(/-/g, ' ').toLowerCase();
+
+  // Sadece ilgili kategoriyle eşleşen yazıları çeken güvenli ve kesin sorgu
+  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $slug || lower(slug.current) == $term || lower(title) == $titleTerm)]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -14,11 +17,10 @@ async function getPostsByCategory(categorySlug: string) {
     "categories": categories[]->title
   }`;
 
-  const formattedName = categorySlug.replace(/-/g, ' ');
-
   return await client.fetch(query, { 
     slug: categorySlug,
-    formattedName: formattedName
+    term: term,
+    titleTerm: titleTerm
   });
 }
 
