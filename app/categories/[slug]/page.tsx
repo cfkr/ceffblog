@@ -3,8 +3,13 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Sadece URL'den gelen kategori slug'ıyla birebir eşleşen postları çeker
-  const query = `*[_type == "post" && $slug in categories[]->slug.current] | order(publishedAt desc) {
+  // Gelen slug "books" veya "book" ise, Sanity'deki "book-and-thoughts" veya benzer slug'ları da kapsayacak şekilde esnetiyoruz
+  const query = `*[_type == "post" && count(categories[]->[
+    slug.current == $slug || 
+    slug.current == "book-and-thoughts" || 
+    slug.current == "book-thoughts" ||
+    lower(title) match "*book*"
+  ]) > 0] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
