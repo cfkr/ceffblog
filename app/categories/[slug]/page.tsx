@@ -3,13 +3,7 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Slug ve kategori başlığı eşleşmesini esnek ve garantili hale getiriyoruz
-  const query = `*[_type == "post" && count(categories[]->[
-    slug.current == $slug || 
-    lower(slug.current) == lower($slug) || 
-    title match $wildcardTitle ||
-    lower(title) match lower($wildcardTitle)
-  ]) > 0] | order(publishedAt desc) {
+  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $slug || slug.current == "book-thoughts" || slug.current == "books")]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -19,12 +13,7 @@ async function getPostsByCategory(categorySlug: string) {
     "categories": categories[]->title
   }`;
 
-  const wildcardTitle = `*${categorySlug.replace(/-/g, ' ')}*`;
-
-  return await client.fetch(query, { 
-    slug: categorySlug,
-    wildcardTitle: wildcardTitle
-  });
+  return await client.fetch(query, { slug: categorySlug });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -42,7 +31,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Kategori başlığını URL slug'ına göre düzenliyoruz
+  // Kategori başlığını şık bir şekilde belirliyoruz
   let categoryTitle = 'Book & Thoughts';
   if (slug && !slug.toLowerCase().includes('book')) {
     categoryTitle = slug
