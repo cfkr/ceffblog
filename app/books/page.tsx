@@ -3,18 +3,41 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // GROQ seviyesinde doğrudan ilişkili kategorinin slug'ına göre filtreliyoruz
-  const query = `*[_type == "post" && references(*[_type == "category" && slug.current == $categorySlug]._id)] | order(publishedAt desc) {
+  // Tüm postları ve kategorilerini eksiksiz çekiyoruz
+  const query = `*[_type == "post"] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
     excerpt,
     body,
     mainImage,
-    "categories": categories[]->title
+    "categories": categories[]->{
+      title,
+      "slug": slug.current
+    }
   }`;
+  
+  const posts = await client.fetch(query);
 
-  return await client.fetch(query, { categorySlug });
+  // URL'den gelen slug ile postun kategorilerini güvenli bir şekilde eşleştiriyoruz
+  return posts.filter((post: any) => {
+    if (!post.categories || !Array.isArray(post.categories)) return false;
+    
+    return post.categories.some((cat: any) => {
+      if (!cat) return false;
+      const catSlug = cat.slug || '';
+      const catTitle = (cat.title || '').toLowerCase();
+      
+      const targetSlug = categorySlug.toLowerCase();
+
+      // İster slug eşleşsin ister kategori adında "book" vb. geçsin
+      if (catSlug === targetSlug) return true;
+      if (targetSlug.includes('book') && catTitle.includes('book')) return true;
+      if (catTitle.replace(/\s+/g, '-') === targetSlug) return true;
+
+      return false;
+    });
+  });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -32,7 +55,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Başlığı dinamik olarak ayarlıyoruz
+  // Başlığı tam istediğin gibi ayarlıyoruz
   let categoryTitle = 'Books & Thoughts';
   if (slug && !slug.toLowerCase().includes('book')) {
     categoryTitle = slug
@@ -95,7 +118,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
                         {post.title}
                       </h3>
                       <p className="text-gray-600 text-xs sm:text-sm mb-4 leading-relaxed">
-                        {limitedTest || limitedText}
+                        {limitedText}
                       </p>
                     </div>
 
