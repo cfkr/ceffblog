@@ -3,13 +3,14 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  // Eğer Navbar'dan "books" geliyorsa, Sanity'deki gerçek slug varyasyonlarını da kapsayacak şekilde esnetiyoruz
+  // Eğer gelen slug "books" veya "book" ise, Sanity'deki gerçek slug olan "book-and-thoughts" ile eşleştiriyoruz
   let targetSlug = categorySlug;
   if (categorySlug.toLowerCase() === 'books' || categorySlug.toLowerCase() === 'book') {
-    targetSlug = 'book-thoughts'; // Sanity Studio'daki gerçek slug değerin neyse buraya yazabilirsin (örn: book-and-thoughts)
+    targetSlug = 'book-and-thoughts';
   }
 
-  const query = `*[_type == "post" && (references(*[_type == "category" && (slug.current == $categorySlug || slug.current == $targetSlug)]._id))] | order(publishedAt desc) {
+  // GROQ sorgusu hem URL'den gelen slug'ı hem de gerçek slug'ı kontrol eder
+  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $categorySlug || slug.current == $targetSlug)]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -18,7 +19,7 @@ async function getPostsByCategory(categorySlug: string) {
     mainImage,
     "categories": categories[]->title
   }`;
-  
+
   return await client.fetch(query, { categorySlug, targetSlug });
 }
 
@@ -37,7 +38,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  // Başlığı düzgün ve şık gösteriyoruz
+  // Başlığı tam istediğin gibi sabit veya dinamik ayarlıyoruz
   let categoryTitle = 'Book & Thoughts';
   if (slug && !slug.toLowerCase().includes('book')) {
     categoryTitle = slug
