@@ -5,10 +5,12 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPosts() {
-  const query = `*[_type == "post"] | order(publishedAt desc)[0...10] {
+  // publishedAt yoksa _createdAt (oluşturulma tarihi) baz alınarak en yeniler en üste sıralanır
+  const query = `*[_type == "post"] | order(coalesce(publishedAt, _createdAt) desc)[0...10] {
     title,
     slug,
     publishedAt,
+    _createdAt,
     excerpt,
     body,
     mainImage,
@@ -42,7 +44,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between overflow-x-hidden">
       <div>
-        {/* Panoramik Banner - Mobilde oranları dengelendi */}
+        {/* Panoramik Banner */}
         <div className="relative w-full h-[30vh] sm:h-[45vh] min-h-[220px] max-h-[480px]">
           <Image
             src="/sword.jpg"
@@ -76,7 +78,7 @@ export default async function Home() {
             </Link>
           </div>
 
-          {/* Blog Kartları Listesi veya Boş Durum */}
+          {/* Blog Kartları Listesi */}
           <div className="grid gap-4 sm:gap-6">
             {posts.length === 0 ? (
               <div className="text-center py-16 px-6 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
@@ -95,11 +97,11 @@ export default async function Home() {
                 const fullText = post.excerpt || extractedBodyText || "Yazının içeriği yükleniyor...";
                 const limitedText = fullText.length > 130 ? fullText.slice(0, 130) + "..." : fullText;
                 const readingTime = calculateReadingTime(post.body);
+                const displayDate = post.publishedAt || post._createdAt;
 
                 return (
                   <div key={post.slug?.current} className="p-4 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 sm:gap-6 items-center">
                     
-                    {/* Kapak Görseli */}
                     {post.mainImage && (
                       <div className="relative w-full sm:w-48 h-48 sm:h-36 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
                         <Image
@@ -111,7 +113,6 @@ export default async function Home() {
                       </div>
                     )}
 
-                    {/* İçerik Kısmı */}
                     <div className="flex-1 w-full flex flex-col justify-between">
                       <div>
                         <div className="flex items-center space-x-2 mb-2 flex-wrap gap-y-1">
@@ -121,20 +122,19 @@ export default async function Home() {
                           <span className="text-gray-300">•</span>
                           <span className="text-xs font-semibold text-gray-600">{readingTime}</span>
                           
-                          {/* Yazar Bilgisi */}
                           {post.author && (
                             <>
                               <span className="text-gray-300">•</span>
                               <div className="flex items-center space-x-1.5">
                                 {post.author.image && (
-                                    <div className="relative w-5 h-5 rounded-full overflow-hidden">
-                                      <Image
-                                        src={urlFor(post.author.image).url()}
-                                        alt={post.author.name}
-                                        fill
-                                        className="object-cover"
-                                      />
-                                    </div>
+                                  <div className="relative w-5 h-5 rounded-full overflow-hidden">
+                                    <Image
+                                      src={urlFor(post.author.image).url()}
+                                      alt={post.author.name}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
                                 )}
                                 <span className="text-xs font-medium text-gray-700">{post.author.name}</span>
                               </div>
@@ -151,11 +151,10 @@ export default async function Home() {
                         </p>
                       </div>
 
-                      {/* Alt Kısım: Tarih ve Buton */}
                       <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-xs">
-                        {post.publishedAt ? (
+                        {displayDate ? (
                           <span className="text-gray-400 font-medium">
-                            {new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {new Date(displayDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         ) : <span />}
 
@@ -176,7 +175,6 @@ export default async function Home() {
         </div>
       </div>
 
-      {/* Copyright ve İletişim Alanı */}
       <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
           <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
