@@ -5,10 +5,11 @@ import { urlFor } from '@/sanity/lib/image';
 export const revalidate = 0;
 
 async function getAllPosts() {
-  const query = `*[_type == "post"] | order(publishedAt desc) {
+  const query = `*[_type == "post"] | order(coalesce(publishedAt, _createdAt) desc) {
     title,
     slug,
     publishedAt,
+    _createdAt,
     excerpt,
     body,
     mainImage,
@@ -62,6 +63,7 @@ export default async function AllPostsPage() {
             posts.map((post: any) => {
               const fullText = post.excerpt || extractTextFromBlocks(post.body) || "";
               const limitedText = fullText.length > 130 ? fullText.slice(0, 130) + "..." : fullText;
+              const displayDate = post.publishedAt || post._createdAt;
 
               return (
                 <div key={post.slug?.current} className="p-4 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 sm:gap-6 items-center">
@@ -85,7 +87,7 @@ export default async function AllPostsPage() {
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-xs">
                       <span className="text-gray-400 font-medium">
-                        {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        {displayDate ? new Date(displayDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                       </span>
                       <Link 
                         href={`/posts/${post.slug?.current}`} 
