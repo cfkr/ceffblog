@@ -3,7 +3,13 @@ import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
 async function getPostsByCategory(categorySlug: string) {
-  const query = `*[_type == "post" && references(*[_type == "category" && slug.current == $slug]._id)] | order(publishedAt desc) {
+  // Eğer Navbar'dan "books" geliyorsa, Sanity'deki gerçek slug varyasyonlarını da kapsayacak şekilde esnetiyoruz
+  let targetSlug = categorySlug;
+  if (categorySlug.toLowerCase() === 'books' || categorySlug.toLowerCase() === 'book') {
+    targetSlug = 'book-thoughts'; // Sanity Studio'daki gerçek slug değerin neyse buraya yazabilirsin (örn: book-and-thoughts)
+  }
+
+  const query = `*[_type == "post" && (references(*[_type == "category" && (slug.current == $categorySlug || slug.current == $targetSlug)]._id))] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
@@ -12,7 +18,8 @@ async function getPostsByCategory(categorySlug: string) {
     mainImage,
     "categories": categories[]->title
   }`;
-  return await client.fetch(query, { slug: categorySlug });
+  
+  return await client.fetch(query, { categorySlug, targetSlug });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -30,7 +37,14 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
-  const categoryTitle = slug.charAt(0).toUpperCase() + slug.slice(1);
+  // Başlığı düzgün ve şık gösteriyoruz
+  let categoryTitle = 'Book & Thoughts';
+  if (slug && !slug.toLowerCase().includes('book')) {
+    categoryTitle = slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between">
@@ -111,7 +125,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
       </div>
 
-      {/* Footer (İngilizce olarak güncellendi) */}
+      {/* Footer */}
       <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
         <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
       </footer>
