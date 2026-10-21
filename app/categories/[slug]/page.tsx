@@ -1,23 +1,27 @@
 import Link from "next/link";
-import Image from "next/image";
 import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
-import { PortableText } from '@portabletext/react';
 
 export const revalidate = 0;
 
-async function getPost(slug: string) {
-  const query = `*[_type == "post" && slug.current == $slug][0] {
+async function getPostsByCategory(categorySlug: string) {
+  let targetSlug = categorySlug;
+  if (categorySlug.toLowerCase() === 'books' || categorySlug.toLowerCase() === 'book') {
+    targetSlug = 'book-and-thoughts';
+  }
+
+  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $categorySlug || slug.current == $targetSlug)]._id)] | order(coalesce(publishedAt, _createdAt) desc) {
     title,
     slug,
     publishedAt,
     _createdAt,
+    excerpt,
     body,
     mainImage,
-    "categories": categories[]->title,
-    author->{name, image}
+    "categories": categories[]->title
   }`;
-  return await client.fetch(query, { slug });
+
+  return await client.fetch(query, { categorySlug, targetSlug });
 }
 
 function extractTextFromBlocks(body: any[]): string {
@@ -30,34 +34,103 @@ function extractTextFromBlocks(body: any[]): string {
     .join(' ');
 }
 
-function calculateReadingTime(body: any[]) {
-  const text = extractTextFromBlocks(body);
-  if (!text) return "1 min read";
-  const words = text.trim().split(/\s+/).length;
-  const time = Math.ceil(words / 200);
-  return `${time} min read`;
-}
-
-export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
-  const post = await getPost(resolvedParams.slug);
+  const { slug } = resolvedParams;
+  const posts = await getPostsByCategory(slug);
 
-  if (!post) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Dispatch Not Found</h1>
-          <Link href="/" className="text-indigo-600 hover:underline text-sm font-medium">
-            ← Back to Home
-          </Link>
-        </div>
-      </div>
-    );
+  let categoryTitle = 'Book & Thoughts';
+  if (slug && !slug.toLowerCase().includes('book')) {
+    categoryTitle = slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
-
-  const readingTime = calculateReadingTime(post.body);
-  const displayDate = post.publishedAt || post._createdAt;
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+        
+        {/* Kategori Başlık Alanı */}
+        <div className="mb-8 pb-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Category Dispatch</span>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mt-1">
+              {categoryTitle}
+            </h1>
+          </div>
+          <Link href="/" className="text-xs sm:text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
+            ← Back to Home
+          </Link>
+        </div>
+
+        {/* Yazı Listesi */}
+        <div className="grid gap-4 sm:gap-6">
+          {posts.length === 0 ? (
+            <div className="text-center py-16 px-6 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+              <div className="text-4xl mb-3">📭</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">No Dispatches Yet</h3>
+              <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto mb-6">
+                New entries for this category will appear here once published from the Sanity studio.
+              </p>
+              <Link href="/" className="inline-block px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 rounded-full shadow-md">
+                Return to Home
+              </Link>
+            </div>
+          ) : (
+            posts.map((post: any) => {
+              const fullText = post.excerpt || extractTextFromBlocks(post.body) || "";
+              const limitedText = fullText.length > 130 ? fullText.slice(0, 130) + "..." : fullText;
+              const displayDate = post.publishedAt || post._createdAt;
+
+              return (
+                <div key={post.slug?.current} className="p-4 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 sm:gap-6 items-center">
+                  
+                  {post.mainImage && (
+                    <div className="relative w-full sm:w-48 h-48 sm:h-36 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
+                      <img
+                        src={urlFor(post.mainImage).url()}
+                        alt={post.title || "Post Image"}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex-1 w-full flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-base sm:text-xl font-bold text-gray-900 mb-2">
+                        {post.title}
+                      </h3>
+                      <p className="text-gray-600 text-xs sm:text-sm mb-4 leading-relaxed">
+                        {limitedText}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-xs">
+                      <span className="text-gray-400 font-medium">
+                        {displayDate ? new Date(displayDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                      </span>
+                      <Link 
+                        href={`/posts/${post.slug?.current}`} 
+                        className="inline-flex items-center px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-full transition-colors"
+                      >
+                        Read Dispatch →
+                      </Link>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })
+          )}
+        </div>
+
+      </div>
+
+      {/* Footer */}
+      <footer className="w-full border-t border-gray-100 py-6 text-center text-xs text-gray-500 mt-auto">
+        <p>© {new Date().getFullYear()} Warrior's Blog. All rights reserved.</p>
+      </footer>
+    </div>
+  );
+}
