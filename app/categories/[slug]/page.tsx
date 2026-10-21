@@ -2,19 +2,18 @@ import Link from "next/link";
 import { client } from '@/sanity/lib/client';
 import { urlFor } from '@/sanity/lib/image';
 
-export const revalidate = 0;
-
 async function getPostsByCategory(categorySlug: string) {
+  // Eğer gelen slug "books" veya "book" ise, Sanity'deki gerçek slug olan "book-and-thoughts" ile eşleştiriyoruz
   let targetSlug = categorySlug;
   if (categorySlug.toLowerCase() === 'books' || categorySlug.toLowerCase() === 'book') {
     targetSlug = 'book-and-thoughts';
   }
 
-  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $categorySlug || slug.current == $targetSlug)]._id)] | order(coalesce(publishedAt, _createdAt) desc) {
+  // GROQ sorgusu hem URL'den gelen slug'ı hem de gerçek slug'ı kontrol eder
+  const query = `*[_type == "post" && references(*[_type == "category" && (slug.current == $categorySlug || slug.current == $targetSlug)]._id)] | order(publishedAt desc) {
     title,
     slug,
     publishedAt,
-    _createdAt,
     excerpt,
     body,
     mainImage,
@@ -39,6 +38,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = resolvedParams;
   const posts = await getPostsByCategory(slug);
 
+  // Başlığı tam istediğin gibi sabit veya dinamik ayarlıyoruz
   let categoryTitle = 'Book & Thoughts';
   if (slug && !slug.toLowerCase().includes('book')) {
     categoryTitle = slug
@@ -81,7 +81,6 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
             posts.map((post: any) => {
               const fullText = post.excerpt || extractTextFromBlocks(post.body) || "";
               const limitedText = fullText.length > 130 ? fullText.slice(0, 130) + "..." : fullText;
-              const displayDate = post.publishedAt || post._createdAt;
 
               return (
                 <div key={post.slug?.current} className="p-4 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 sm:gap-6 items-center">
@@ -108,7 +107,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
                     <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-xs">
                       <span className="text-gray-400 font-medium">
-                        {displayDate ? new Date(displayDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                       </span>
                       <Link 
                         href={`/posts/${post.slug?.current}`} 
