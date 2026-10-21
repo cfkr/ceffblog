@@ -62,9 +62,9 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     <div className="min-h-screen bg-white flex flex-col justify-between">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         
-        {/* Geri Dönüş Butonu */}
+        {/* Geri Dönüş Butonu (İdeal Boyutta) */}
         <div className="mb-8">
-          <Link href="/" className="inline-flex items-center text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+          <Link href="/" className="inline-flex items-center text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
             ← Back to Home
           </Link>
         </div>
